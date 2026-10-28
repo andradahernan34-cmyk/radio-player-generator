@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radio Player Generator</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:#0b0b0b;color:#f5f5f5;font-family:Arial,sans-serif}
+.app{max-width:650px;margin:auto}
+header{text-align:center;padding:22px 5px}
+header .icon{font-size:44px}
+header h1{font-size:27px;margin:10px 0}
+header p,.note{color:#aaa;line-height:1.5}
+.panel{background:#1a1a1a;border:1px solid #333;border-radius:16px;padding:20px;margin:18px 0}
+h2{font-size:20px}
+label{display:block;margin:15px 0 7px;font-size:14px}
+input,textarea{width:100%;padding:12px;border:1px solid #444;border-radius:8px;background:#101010;color:white}
+input[type=color]{height:45px;padding:4px}
+button{width:100%;padding:13px;margin-top:12px;border:0;border-radius:8px;color:white;font-weight:bold;background:#333}
+.primary{background:#e32626}
+.green{background:#087f5b}
+.preview{padding:22px;text-align:center;border:2px solid var(--accent);border-radius:15px;background:var(--bg)}
+.preview h2{color:var(--accent);overflow-wrap:anywhere}
+.preview audio{width:100%;margin:12px 0}
+#logoPreview{max-width:140px;max-height:140px;object-fit:contain;margin:auto}
+#logoPreview[hidden]{display:none}
+textarea{font-family:monospace;font-size:12px;line-height:1.5;resize:vertical}
+.note{font-size:12px}
+footer{text-align:center;color:#777;font-size:12px;padding:15px}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="icon">📻</div>
+  <h1>Radio Player Generator</h1>
+  <p>Creá y compartí tu propio reproductor online</p>
+</header>
+
+<section class="panel">
+<h2>Personalizá tu radio</h2>
+
+<label for="radioName">Nombre de la radio</label>
+<input id="radioName" value="Mi Radio Online" maxlength="100">
+
+<label for="streamUrl">URL del streaming</label>
+<input id="streamUrl" type="url"
+ value="https://streaming.radiosenlinea.com.ar/8470/"
+ placeholder="https://servidor.com/stream">
+
+<label for="logoFile">Logo de la radio</label>
+<input id="logoFile" type="file" accept="image/*">
+
+<label for="accent">Color principal</label>
+<input id="accent" type="color" value="#e32626">
+
+<label for="bg">Color de fondo</label>
+<input id="bg" type="color" value="#171717">
+
+<button class="primary" id="update">Actualizar vista previa</button>
+</section>
+
+<section class="panel">
+<h2>Vista previa</h2>
+<div class="preview" id="preview" style="--accent:#e32626;--bg:#171717">
+  <img id="logoPreview" alt="Logo de la radio" hidden>
+  <h2 id="previewName">Mi Radio Online</h2>
+  <p>Tu música, siempre con vos</p>
+  <audio id="audio" controls>
+    <source src="https://streaming.radiosenlinea.com.ar/8470/" type="audio/mpeg">
+    Tu navegador no puede reproducir este audio.
+  </audio>
+  <p>¡Dale play para escuchar!</p>
+</div>
+</section>
+
+<section class="panel">
+<h2>Generar y compartir</h2>
+<button class="primary" id="generate">Generar código HTML</button>
+<label for="htmlOutput">Código HTML generado</label>
+<textarea id="htmlOutput" rows="9" placeholder="El código aparecerá aquí"></textarea>
+<button id="copyHTML">Copiar código HTML</button>
+<button id="download">Descargar reproductor HTML</button>
+
+<button class="green" id="makeLink">Crear enlace para compartir</button>
+<label for="shareOutput">Enlace de configuración</label>
+<textarea id="shareOutput" rows="3" readonly placeholder="Tu enlace aparecerá aquí"></textarea>
+<button id="copyLink">Copiar enlace</button>
+
+<p class="note">El enlace de configuración necesita que publiques este generador en internet. Los enlaces con logos grandes pueden ser demasiado largos para compartir.</p>
+</section>
+<footer>Radio Player Generator · Tu radio, tu estilo</footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let logoData = "";
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, ch => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[ch]));
+}
+
+function getConfig() {
+  return {
+    name: $("radioName").value.trim() || "Mi Radio Online",
+    stream: $("streamUrl").value.trim(),
+    accent: $("accent").value,
+    bg: $("bg").value,
+    logo: logoData
+  };
+}
+
+function updatePreview() {
+  const c = getConfig();
+  $("previewName").textContent = c.name;
+  $("preview").style.setProperty("--accent", c.accent);
+  $("preview").style.setProperty("--bg", c.bg);
+
+  if (c.stream) {
+    $("audio").src = c.stream;
+    $("audio").load();
+  }
+
+  $("logoPreview").hidden = !c.logo;
+  if (c.logo) $("logoPreview").src = c.logo;
+  else $("logoPreview").removeAttribute("src");
+}
+
+$("logoFile").addEventListener("change", function() {
+  const file = this.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith("image/")) {
+    alert("Elegí un archivo de imagen.");
+    this.value = "";
+    return;
+  }
+
+  if (file.size > 1500000) {
+    alert("Elegí un logo de menos de 1,5 MB para que el enlace no sea demasiado grande.");
+    this.value = "";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    logoData = e.target.result;
+    updatePreview();
+  };
+  reader.readAsDataURL(file);
+});
+
+$("update").addEventListener("click", updatePreview);
+
+function createHTML(c) {
+  const name = escapeHTML(c.name);
+  const stream = escapeHTML(c.stream);
+  const logo = c.logo
+    ? '<img class="logo" src="' + c.logo + '" alt="Logo de la radio">'
+    : "";
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${name}</title>
+<style>
+body{margin:0;padding:20px;background:${c.bg};color:white;font-family:Arial,sans-serif}
+.player{max-width:420px;margin:20px auto;padding:24px;text-align:center;background:${c.bg};border:2px solid ${c.accent};border-radius:16px}
+h2{color:${c.accent};overflow-wrap:anywhere}
+.logo{max-width:150px;max-height:150px;object-fit:contain}
+audio{width:100%;margin:12px 0}
+</style>
+</head>
+<body>
+<div class="player">
+${logo}
+<h2>${name}</h2>
+<p>Tu música, siempre con vos</p>
+<audio controls preload="none">
+<source src="${stream}" type="audio/mpeg">
+Tu navegador no puede reproducir este audio.
+</audio>
+<p>¡Dale play para escuchar!</p>
+</div>
+</body>
+</html>`;
+}
+
+$("generate").addEventListener("click", function() {
+  updatePreview();
+  const c = getConfig();
+
+  if (!c.stream) {
+    alert("Ingresá la dirección del streaming.");
+    return;
+  }
+
+  try {
+    const url = new URL(c.stream);
+    if (!["http:", "https:"].includes(url.protocol)) throw new Error();
+  } catch {
+    alert("Ingresá una URL de streaming válida que empiece con https:// o http://");
+    return;
+  }
+
+  $("htmlOutput").value = createHTML(c);
+});
+
+async function copyText(text) {
+  if (!text) {
+    alert("Primero generá el contenido.");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    alert("¡Copiado!");
+  } catch {
+    alert("Seleccioná el texto y elegí Copiar.");
+  }
+}
+
+$("copyHTML").addEventListener("click", () => copyText($("htmlOutput").value));
+
+$("download").addEventListener("click", function() {
+  if (!$("htmlOutput").value) {
+    alert("Primero generá el código HTML.");
+    return;
+  }
+  const blob = new Blob([$("htmlOutput").value], {type:"text/html;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const filename = (getConfig().name.toLowerCase().replace(/[^a-z0-9]+/g,"-") || "mi-radio");
+  a.href = url;
+  a.download = filename + "-player.html";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+});
+
+function encodeConfig(c) {
+  const bytes = new TextEncoder().encode(JSON.stringify(c));
+  let binary = "";
+  bytes.forEach(b => binary += String.fromCharCode(b));
+  return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
+}
+
+$("makeLink").addEventListener("click", function() {
+  const c = getConfig();
+  if (!c.stream) {
+    alert("Ingresá la dirección del streaming.");
+    return;
+  }
+  const base = new URL(window.location.href);
+  base.search = "";
+  base.hash = "";
+  base.searchParams.set("config", encodeConfig(c));
+  $("shareOutput").value = base.href;
+});
+
+$("copyLink").addEventListener("click", () => copyText($("shareOutput").value));
+
+function loadSharedConfig() {
+  const encoded = new URLSearchParams(location.search).get("config");
+  if (!encoded) {
+    updatePreview();
+    return;
+  }
+  try {
+    const b64 = encoded.replace(/-/g,"+").replace(/_/g,"/");
+    const binary = atob(b64 + "=".repeat((4-b64.length%4)%4));
+    const bytes = Uint8Array.from(binary, ch => ch.charCodeAt(0));
+    const c = JSON.parse(new TextDecoder().decode(bytes));
+
+    $("radioName").value = c.name || "Mi Radio Online";
+    $("streamUrl").value = c.stream || "";
+    $("accent").value = c.accent || "#e32626";
+    $("bg").value = c.bg || "#171717";
+    logoData = typeof c.logo === "string" && c.logo.startsWith("data:image/") ? c.logo : "";
+    updatePreview();
+  } catch {
+    alert("No se pudo cargar la configuración del enlace.");
+    updatePreview();
+  }
+}
+
+loadSharedConfig();
+</script>
+</body>
+  </html>
